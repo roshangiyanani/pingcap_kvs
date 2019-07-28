@@ -1,18 +1,24 @@
 use clap::{App, AppSettings, Arg, SubCommand};
 use strum_macros::{Display, EnumString};
 
-use kvs::KvStore;
+// use kvs::KvStore;
 
 fn main() {
     let mode = get_mode();
     println!("mode: {:?}", mode);
 
-    let mut kvs = KvStore::new();
-    match mode {
-       Mode::Get(key) => { kvs.get(key); },
-       Mode::Set(key, value) => kvs.set(key, value),
-       Mode::Remove(key) => kvs.remove(key),
-    }
+    eprintln!("unimplemented");
+    unimplemented!();
+
+    // let mut kvs = KvStore::new();
+
+    // match mode {
+    //     Mode::Get(key) => {
+    //         kvs.get(key);
+    //     }
+    //     Mode::Set(key, value) => kvs.set(key, value),
+    //     Mode::Remove(key) => kvs.remove(key),
+    // }
 }
 
 fn get_mode() -> Mode {
