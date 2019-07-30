@@ -1,158 +1,54 @@
-use assert_cmd::prelude::*;
-use kvs::KvStore;
-use predicates::str::contains;
-use std::process::Command;
+// use assert_cmd::prelude::*;
+// use kvs::{HashMapKvs, KvStore, Result};
+// use predicates::ord::eq;
+// use predicates::str::{contains, is_empty, PredicateStrExt};
+// use std::process::Command;
+// use tempfile::TempDir;
+// use walkdir::WalkDir;
 
-// `kvs` with no args should exit with a non-zero code.
-#[test]
-fn cli_no_args() {
-    Command::cargo_bin("kvs").unwrap().assert().failure();
-}
+// // Insert data until total size of the directory decreases.
+// // Test data correctness after compaction.
+// #[test]
+// fn compaction() -> Result<()> {
+//     let temp_dir =
+//         TempDir::new().expect("unable to create temporary working
+// directory");     let mut store = HashMapKvs::open(temp_dir.path())?;
 
-// `kvs -V` should print the version
-#[test]
-fn cli_version() {
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["-V"])
-        .assert()
-        .stdout(contains(env!("CARGO_PKG_VERSION")));
-}
+//     let dir_size = || {
+//         let entries = WalkDir::new(temp_dir.path()).into_iter();
+//         let len: walkdir::Result<u64> = entries
+//             .map(|res| {
+//                 res.and_then(|entry| entry.metadata())
+//                     .map(|metadata| metadata.len())
+//             })
+//             .sum();
+//         len.expect("fail to get directory size")
+//     };
 
-// `kvs get <KEY>` should print "unimplemented" to stderr and exit with non-zero
-// code
-#[test]
-fn cli_get() {
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["get", "key1"])
-        .assert()
-        .failure()
-        .stderr(contains("unimplemented"));
-}
+//     let mut current_size = dir_size();
+//     for iter in 0..1000 {
+//         for key_id in 0..1000 {
+//             let key = format!("key{}", key_id);
+//             let value = format!("{}", iter);
+//             store.set(key, value)?;
+//         }
 
-// `kvs set <KEY> <VALUE>` should print "unimplemented" to stderr and exit with
-// non-zero code
-#[test]
-fn cli_set() {
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["set", "key1", "value1"])
-        .assert()
-        .failure()
-        .stderr(contains("unimplemented"));
-}
+//         let new_size = dir_size();
+//         if new_size > current_size {
+//             current_size = new_size;
+//             continue;
+//         }
+//         // Compaction triggered
 
-// `kvs rm <KEY>` should print "unimplemented" to stderr and exit with non-zero
-// code
-#[test]
-fn cli_rm() {
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["rm", "key1"])
-        .assert()
-        .failure()
-        .stderr(contains("unimplemented"));
-}
+//         drop(store);
+//         // reopen and check content
+//         let mut store = HashMapKvs::open(temp_dir.path())?;
+//         for key_id in 0..1000 {
+//             let key = format!("key{}", key_id);
+//             assert_eq!(store.get(key)?, Some(format!("{}", iter)));
+//         }
+//         return Ok(());
+//     }
 
-#[test]
-fn cli_invalid_get() {
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["get"])
-        .assert()
-        .failure();
-
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["get", "extra", "field"])
-        .assert()
-        .failure();
-}
-
-#[test]
-fn cli_invalid_set() {
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["set"])
-        .assert()
-        .failure();
-
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["set", "missing_field"])
-        .assert()
-        .failure();
-
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["set", "extra", "extra", "field"])
-        .assert()
-        .failure();
-}
-
-#[test]
-fn cli_invalid_rm() {
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["rm"])
-        .assert()
-        .failure();
-
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["rm", "extra", "field"])
-        .assert()
-        .failure();
-}
-
-#[test]
-fn cli_invalid_subcommand() {
-    Command::cargo_bin("kvs")
-        .unwrap()
-        .args(&["unknown", "subcommand"])
-        .assert()
-        .failure();
-}
-
-// Should get previously stored value
-#[test]
-fn get_stored_value() {
-    let mut store = KvStore::new();
-
-    store.set("key1".to_owned(), "value1".to_owned());
-    store.set("key2".to_owned(), "value2".to_owned());
-
-    assert_eq!(store.get("key1".to_owned()), Some("value1".to_owned()));
-    assert_eq!(store.get("key2".to_owned()), Some("value2".to_owned()));
-}
-
-// Should overwrite existent value
-#[test]
-fn overwrite_value() {
-    let mut store = KvStore::new();
-
-    store.set("key1".to_owned(), "value1".to_owned());
-    assert_eq!(store.get("key1".to_owned()), Some("value1".to_owned()));
-
-    store.set("key1".to_owned(), "value2".to_owned());
-    assert_eq!(store.get("key1".to_owned()), Some("value2".to_owned()));
-}
-
-// Should get `None` when getting a non-existent key
-#[test]
-fn get_non_existent_value() {
-    let mut store = KvStore::new();
-
-    store.set("key1".to_owned(), "value1".to_owned());
-    assert_eq!(store.get("key2".to_owned()), None);
-}
-
-#[test]
-fn remove_key() {
-    let mut store = KvStore::new();
-
-    store.set("key1".to_owned(), "value1".to_owned());
-    store.remove("key1".to_owned());
-    assert_eq!(store.get("key1".to_owned()), None);
-}
+//     panic!("No compaction detected");
+// }

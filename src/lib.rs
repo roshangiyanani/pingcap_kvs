@@ -3,5 +3,9 @@
 /*!
 A library for key-value storage.
 */
-mod kv_store;
-pub use kv_store::KvStore;
+
+mod kvs;
+pub use self::kvs::{HashMapKvs, KvStore};
+
+mod errors;
+pub use self::errors::{Error, ErrorKind, Result};
