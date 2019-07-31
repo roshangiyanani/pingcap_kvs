@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fs::{File, OpenOptions};
+use std::fs::{create_dir, File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
@@ -44,6 +44,32 @@ impl LogCommand {
 }
 
 impl LogKvs {
+    /// Initialize the key value store
+    ///
+    /// ```rust
+    /// use tempfile::TempDir;
+    ///
+    /// let temp_dir =
+    ///     TempDir::new().expect("unable to create temporary working directory");
+    /// let mut store = kvs::LogKvs::open(temp_dir.path()).unwrap();
+    /// ```
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = Path::new(path.as_ref());
+
+        // create directory if need be
+        if let Err(err) = create_dir(path) {
+            if err.kind() != std::io::ErrorKind::AlreadyExists {
+                return Err(Error::io(err));
+            }
+        }
+
+        if path.join(DEFAULT_LOG_NAME).is_file() {
+            LogKvs::load(path)
+        } else {
+            LogKvs::new(path)
+        }
+    }
+
     fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let kvs = LogKvs {
             index: HashMap::new(),
@@ -106,24 +132,6 @@ impl LogKvs {
 }
 
 impl KvStore for LogKvs {
-    /// Initialize the key value store
-    ///
-    /// ```rust
-    /// use kvs::KvStore;
-    /// use tempfile::TempDir;
-    ///
-    /// let temp_dir =
-    ///     TempDir::new().expect("unable to create temporary working directory");
-    /// let mut store = kvs::LogKvs::open(temp_dir.path()).unwrap();
-    /// ```
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
-        if Path::new(path.as_ref()).join(DEFAULT_LOG_NAME).is_file() {
-            LogKvs::load(path)
-        } else {
-            LogKvs::new(path)
-        }
-    }
-
     /// Set a value. If the key already existed, the old value is overwritten.
     ///
     /// ```rust

@@ -1,12 +1,7 @@
-use std::path::Path;
-
 use crate::Result;
 
 /// Trait for the key value store
-pub trait KvStore: Sized {
-    /// Initialize the key value store.
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self>;
-
+pub trait KvStore {
     /// Set a value. If the key already existed, the old value is overwritten.
     fn set(&mut self, key: String, value: String) -> Result<()>;
 

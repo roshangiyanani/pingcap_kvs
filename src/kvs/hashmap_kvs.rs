@@ -16,6 +16,23 @@ pub struct HashMapKvs {
 }
 
 impl HashMapKvs {
+    /// Initialize the key value store
+    ///
+    /// ```rust
+    /// use tempfile::TempDir;
+    ///
+    /// let temp_dir =
+    ///     TempDir::new().expect("unable to create temporary working directory");
+    /// let mut store = kvs::HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
+    /// ```
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+        if path.as_ref().is_file() {
+            HashMapKvs::load(path)
+        } else {
+            HashMapKvs::new(path)
+        }
+    }
+
     fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let mut kvs = HashMapKvs {
             map: HashMap::new(),
@@ -50,24 +67,6 @@ impl HashMapKvs {
 }
 
 impl KvStore for HashMapKvs {
-    /// Initialize the key value store
-    ///
-    /// ```rust
-    /// use kvs::KvStore;
-    /// use tempfile::TempDir;
-    ///
-    /// let temp_dir =
-    ///     TempDir::new().expect("unable to create temporary working directory");
-    /// let mut store = kvs::HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
-    /// ```
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
-        if path.as_ref().is_file() {
-            HashMapKvs::load(path)
-        } else {
-            HashMapKvs::new(path)
-        }
-    }
-
     /// Set a value. If the key already existed, the old value is overwritten.
     ///
     /// ```rust

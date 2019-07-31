@@ -1,23 +1,51 @@
 use std::path::PathBuf;
 
 use structopt::StructOpt;
+#[macro_use]
+extern crate strum_macros;
 use strum_macros::Display;
 
-use kvs::{HashMapKvs, KvStore, Result};
+use kvs::{HashMapKvs, KvStore, LogKvs, Result};
 
 fn main() -> Result<()> {
     let opt = Opt::from_args();
-    let mut kvs = HashMapKvs::open(opt.backing_store).unwrap();
-    opt.command.execute(&mut kvs)
+    let mut kvs: Box<dyn KvStore> = match opt.store {
+        Store::HashMap => Box::new(HashMapKvs::open(opt.location).unwrap()),
+        Store::Log => Box::new(LogKvs::open(opt.location).unwrap()),
+    };
+    opt.command.execute(kvs.as_mut())
 }
 
 #[derive(Debug, StructOpt)]
 struct Opt {
-    /// The location to load and save the backing store
-    #[structopt(parse(from_os_str), default_value = "target/kvs")]
-    backing_store: PathBuf,
+    /// Which type of backing store to use.
+    #[structopt(
+        short,
+        long,
+        default_value = "hashmap",
+        raw(possible_values = "&[\"hashmap\", \"log\"]")
+    )]
+    store: Store,
+    /// The location to load and save the backing store.
+    #[structopt(
+        short,
+        long,
+        parse(from_os_str),
+        default_value = "target/store"
+    )]
+    location: PathBuf,
     #[structopt(subcommand)]
     command: Command,
+}
+
+#[derive(Debug, Display, EnumString)]
+enum Store {
+    /// Use a hashmap backed to the given file location.
+    #[strum(serialize = "hashmap")]
+    HashMap,
+    /// Use an append-only log store backed in the given directory location.
+    #[strum(serialize = "log")]
+    Log,
 }
 
 #[derive(Debug, Display, StructOpt)]
@@ -45,7 +73,7 @@ enum Command {
 }
 
 impl Command {
-    fn execute<K: KvStore>(self, kvs: &mut K) -> Result<()> {
+    fn execute(self, kvs: &mut dyn KvStore) -> Result<()> {
         // TODO: Revisit this (particularly the Remove logic)
         match self {
             Command::Get { key } => {
@@ -99,7 +127,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["kvs_file", "get", "key1"])
+            .args(&["-l", "kvs_file", "get", "key1"])
             .current_dir(&temp_dir)
             .assert()
             .success()
@@ -114,7 +142,7 @@ mod tests {
             .expect("unable to create temporary working directory");
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["kvs_file", "rm", "key1"])
+            .args(&["-l", "kvs_file", "rm", "key1"])
             .current_dir(&temp_dir)
             .assert()
             .success()
@@ -128,7 +156,7 @@ mod tests {
             .expect("unable to create temporary working directory");
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["kvs_file", "set", "key1", "value1"])
+            .args(&["-l", "kvs_file", "set", "key1", "value1"])
             .current_dir(&temp_dir)
             .assert()
             .success()
@@ -147,7 +175,7 @@ mod tests {
 
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["kvs_file", "get", "key1"])
+            .args(&["-l", "kvs_file", "get", "key1"])
             .current_dir(&temp_dir)
             .assert()
             .success()
@@ -155,7 +183,7 @@ mod tests {
 
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["kvs_file", "get", "key2"])
+            .args(&["-l", "kvs_file", "get", "key2"])
             .current_dir(&temp_dir)
             .assert()
             .success()
@@ -176,7 +204,7 @@ mod tests {
 
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["kvs_file", "rm", "key1"])
+            .args(&["-l", "kvs_file", "rm", "key1"])
             .current_dir(&temp_dir)
             .assert()
             .success()
@@ -184,7 +212,7 @@ mod tests {
 
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["kvs_file", "get", "key1"])
+            .args(&["-l", "kvs_file", "get", "key1"])
             .current_dir(&temp_dir)
             .assert()
             .success()
@@ -195,60 +223,79 @@ mod tests {
 
     #[test]
     fn cli_invalid_get() {
+        let temp_dir = TempDir::new()
+            .expect("unable to create temporary working directory");
+
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["get"])
+            .args(&["-l", "kvs_file", "get"])
+            .current_dir(&temp_dir)
             .assert()
             .failure();
 
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["get", "extra", "field"])
+            .args(&["-l", "kvs_file", "get", "extra", "field"])
+            .current_dir(&temp_dir)
             .assert()
             .failure();
     }
 
     #[test]
     fn cli_invalid_set() {
+        let temp_dir = TempDir::new()
+            .expect("unable to create temporary working directory");
+
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["set"])
+            .args(&["-l", "kvs_file", "set"])
+            .current_dir(&temp_dir)
             .assert()
             .failure();
 
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["set", "missing_field"])
+            .args(&["-l", "kvs_file", "set", "missing_field"])
+            .current_dir(&temp_dir)
             .assert()
             .failure();
 
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["set", "extra", "extra", "field"])
+            .args(&["-l", "kvs_file", "set", "extra", "extra", "field"])
+            .current_dir(&temp_dir)
             .assert()
             .failure();
     }
 
     #[test]
     fn cli_invalid_rm() {
+        let temp_dir = TempDir::new()
+            .expect("unable to create temporary working directory");
+
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["rm"])
+            .args(&["-l", "kvs_file", "rm"])
+            .current_dir(&temp_dir)
             .assert()
             .failure();
 
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["rm", "extra", "field"])
+            .args(&["-l", "kvs_file", "rm", "extra", "field"])
+            .current_dir(&temp_dir)
             .assert()
             .failure();
     }
 
     #[test]
     fn cli_invalid_subcommand() {
+        let temp_dir = TempDir::new()
+            .expect("unable to create temporary working directory");
         Command::cargo_bin("kvs")
             .unwrap()
-            .args(&["unknown", "subcommand"])
+            .args(&["-l", "kvs_file", "unknown", "subcommand"])
+            .current_dir(&temp_dir)
             .assert()
             .failure();
     }
