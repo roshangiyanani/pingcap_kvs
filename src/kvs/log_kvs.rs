@@ -98,16 +98,15 @@ impl LogKvs {
             backing_dir: PathBuf::from(path.as_ref()),
         };
 
-        let file = File::open(kvs.backing_dir.join(DEFAULT_LOG_NAME))
-            .map_err(Error::io)?;
+        let file = File::open(kvs.backing_dir.join(DEFAULT_LOG_NAME))?;
         let mut reader = BufReader::new(file);
-        let end_pos = reader.stream_len().map_err(Error::io)?;
-        let mut current_pos = reader.stream_position().map_err(Error::io)?;
+        let end_pos = reader.stream_len()?;
+        let mut current_pos = reader.stream_position()?;
         while current_pos < end_pos {
             let command = LogCommand::read(&mut reader)?;
             let pointer = LogCommandPointer::new(DEFAULT_LOG_ID, current_pos);
             kvs.replay(command, pointer)?;
-            current_pos = reader.stream_position().map_err(Error::io)?;
+            current_pos = reader.stream_position()?;
         }
         Ok(kvs)
     }
@@ -118,7 +117,7 @@ impl LogKvs {
         pointer: LogCommandPointer,
     ) -> Result<()> {
         match command {
-            LogCommand::Set { key, value } => {
+            LogCommand::Set { key, value: _ } => {
                 self.index.insert(key, pointer);
                 Ok(())
             }
@@ -140,27 +139,23 @@ impl LogKvs {
             .create(true)
             .write(true)
             .append(true)
-            .open(self.backing_dir.join(DEFAULT_LOG_NAME))
-            .map_err(Error::io)?;
+            .open(self.backing_dir.join(DEFAULT_LOG_NAME))?;
         let mut writer = BufWriter::new(file);
-        let current_pos =
-            writer.seek(std::io::SeekFrom::End(0)).map_err(Error::io)?;
+        let current_pos = writer.seek(std::io::SeekFrom::End(0))?;
         command.append(&mut writer)?;
         Ok(LogCommandPointer::new(DEFAULT_LOG_ID, current_pos))
     }
 
     fn get_command(&self, pointer: &LogCommandPointer) -> Result<LogCommand> {
-        let mut file = File::open(self.backing_dir.join(DEFAULT_LOG_NAME))
-            .map_err(Error::io)?;
-        file.seek(std::io::SeekFrom::Start(pointer.offset))
-            .map_err(Error::io)?;
+        let mut file = File::open(self.backing_dir.join(DEFAULT_LOG_NAME))?;
+        file.seek(std::io::SeekFrom::Start(pointer.offset))?;
         let mut reader = BufReader::new(file);
         LogCommand::read(&mut reader)
     }
 
     fn get_key(&self, pointer: &LogCommandPointer) -> Result<String> {
         match self.get_command(pointer)? {
-            LogCommand::Set { key, value } => Ok(value),
+            LogCommand::Set { key: _, value } => Ok(value),
             LogCommand::Remove { key } => {
                 Err(Error::corrupt_database(format!(
                     "LogCommand at {:?} should set key '{}', not remove it",
