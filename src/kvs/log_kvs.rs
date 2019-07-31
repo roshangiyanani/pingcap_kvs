@@ -8,12 +8,13 @@ use strum_macros::Display;
 
 use crate::{Error, KvStore, Result};
 
-const DEFAULT_LOG_NAME: &str = "log";
+const DEFAULT_LOG_NAME: &str = "1";
+const DEFAULT_LOG_ID: usize = 1;
 
 /// An implementation of a key-value store using an append-only log store.
 #[derive(Debug)]
 pub struct LogKvs {
-    index: HashMap<String, String>,
+    index: HashMap<String, LogCommandPointer>,
     backing_dir: PathBuf,
 }
 
@@ -40,6 +41,18 @@ impl LogCommand {
 
     fn read<R: Read>(reader: &mut R) -> Result<LogCommand> {
         bincode::deserialize_from(reader).map_err(Error::bincode)
+    }
+}
+
+#[derive(Debug)]
+struct LogCommandPointer {
+    file_id: usize,
+    offset: u64,
+}
+
+impl LogCommandPointer {
+    fn new(file_id: usize, offset: u64) -> LogCommandPointer {
+        LogCommandPointer { file_id, offset }
     }
 }
 
@@ -89,17 +102,24 @@ impl LogKvs {
             .map_err(Error::io)?;
         let mut reader = BufReader::new(file);
         let end_pos = reader.stream_len().map_err(Error::io)?;
-        while reader.stream_position().map_err(Error::io)? < end_pos {
+        let mut current_pos = reader.stream_position().map_err(Error::io)?;
+        while current_pos < end_pos {
             let command = LogCommand::read(&mut reader)?;
-            kvs.replay(command)?;
+            let pointer = LogCommandPointer::new(DEFAULT_LOG_ID, current_pos);
+            kvs.replay(command, pointer)?;
+            current_pos = reader.stream_position().map_err(Error::io)?;
         }
         Ok(kvs)
     }
 
-    fn replay(&mut self, command: LogCommand) -> Result<()> {
+    fn replay(
+        &mut self,
+        command: LogCommand,
+        pointer: LogCommandPointer,
+    ) -> Result<()> {
         match command {
             LogCommand::Set { key, value } => {
-                self.index.insert(key, value);
+                self.index.insert(key, pointer);
                 Ok(())
             }
             LogCommand::Remove { key } => {
@@ -115,7 +135,7 @@ impl LogKvs {
         }
     }
 
-    fn append(&self, command: LogCommand) -> Result<()> {
+    fn append(&self, command: LogCommand) -> Result<LogCommandPointer> {
         let file = OpenOptions::new()
             .create(true)
             .write(true)
@@ -123,7 +143,31 @@ impl LogKvs {
             .open(self.backing_dir.join(DEFAULT_LOG_NAME))
             .map_err(Error::io)?;
         let mut writer = BufWriter::new(file);
-        command.append(&mut writer)
+        let current_pos =
+            writer.seek(std::io::SeekFrom::End(0)).map_err(Error::io)?;
+        command.append(&mut writer)?;
+        Ok(LogCommandPointer::new(DEFAULT_LOG_ID, current_pos))
+    }
+
+    fn get_command(&self, pointer: &LogCommandPointer) -> Result<LogCommand> {
+        let mut file = File::open(self.backing_dir.join(DEFAULT_LOG_NAME))
+            .map_err(Error::io)?;
+        file.seek(std::io::SeekFrom::Start(pointer.offset))
+            .map_err(Error::io)?;
+        let mut reader = BufReader::new(file);
+        LogCommand::read(&mut reader)
+    }
+
+    fn get_key(&self, pointer: &LogCommandPointer) -> Result<String> {
+        match self.get_command(pointer)? {
+            LogCommand::Set { key, value } => Ok(value),
+            LogCommand::Remove { key } => {
+                Err(Error::corrupt_database(format!(
+                    "LogCommand at {:?} should set key '{}', not remove it",
+                    pointer, key
+                )))
+            }
+        }
     }
 
     fn compact<P: AsRef<Path>>(path: P) -> Result<Self> {
@@ -144,11 +188,11 @@ impl KvStore for LogKvs {
     /// store.set("key1".to_owned(), "value1".to_owned());
     /// ```
     fn set(&mut self, key: String, value: String) -> Result<()> {
-        self.append(LogCommand::Set {
+        let pointer = self.append(LogCommand::Set {
             key: key.clone(),
             value: value.clone(),
         })?;
-        self.index.insert(key, value);
+        self.index.insert(key, pointer);
         Ok(())
     }
 
@@ -166,7 +210,12 @@ impl KvStore for LogKvs {
     /// store.get("key1".to_owned());
     /// ```
     fn get(&self, key: String) -> Result<Option<String>> {
-        Ok(self.index.get(&key).cloned())
+        match self.index.get(&key) {
+            Some(pointer) => {
+                self.get_key(pointer).and_then(|value| Ok(Some(value)))
+            }
+            None => Ok(None),
+        }
     }
 
     /// Remove a key-value. Return an error if the key does not exist or is not
@@ -184,10 +233,10 @@ impl KvStore for LogKvs {
     /// ```
     fn remove(&mut self, key: String) -> Result<Option<String>> {
         match self.index.remove(&key) {
-            Some(old_key) => {
+            Some(old_pointer) => {
                 // TODO: If append fails, index is now inconsistent
                 self.append(LogCommand::Remove { key })?;
-                Ok(Some(old_key))
+                self.get_key(&old_pointer).and_then(|value| Ok(Some(value)))
             }
             None => Ok(None),
         }
