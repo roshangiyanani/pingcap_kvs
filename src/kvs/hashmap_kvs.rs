@@ -8,7 +8,7 @@ use crate::{Error, KvStore, Result};
 
 /// An implementation of a key-value store using an in memory hashmap that
 /// only saves the store on close.
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct HashMapKvs {
     map: HashMap<String, String>,
     backing: PathBuf,

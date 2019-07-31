@@ -28,6 +28,16 @@ impl Error {
         Error::from(ErrorKind::Serde(err.to_string()))
     }
 
+    /// Shortcut for constructing a Serde error from a Bincode error.
+    pub(crate) fn bincode(err: bincode::Error) -> Error {
+        Error::from(ErrorKind::Serde(err.to_string()))
+    }
+
+    /// Shortcut for constructing a CorruptDatabase error
+    pub(crate) fn corrupt_database(msg: String) -> Error {
+        Error::from(ErrorKind::CorruptDatabase(msg))
+    }
+
     // /// Shortcut for constructing a KeyDoesNotExist error.
     // pub(crate) fn key_does_not_exist<T: AsRef<str>>(key: T) -> Error {
     //     Error::from(ErrorKind::KeyDoesNotExist(key.as_ref().to_string()))
@@ -61,6 +71,8 @@ pub enum ErrorKind {
      * ///
      * /// The key does not exist.
      * KeyDoesNotExist(String), */
+    /// The database has been corrupted (has an inconsistent state).
+    CorruptDatabase(String),
 }
 
 impl fmt::Display for ErrorKind {
@@ -68,9 +80,11 @@ impl fmt::Display for ErrorKind {
         match *self {
             ErrorKind::Io(ref msg) => write!(f, "I/O error: {}", msg),
             ErrorKind::Serde(ref msg) => write!(f, "Serde error: {}", msg),
-            /* ErrorKind::KeyDoesNotExist(ref key) => {
-             *     write!(f, "key does not exist: {}", key)
-             * } */
+            ErrorKind::CorruptDatabase(ref msg) => {
+                write!(f, "CorruptDatabase error: {}", msg)
+            } /* ErrorKind::KeyDoesNotExist(ref key) => {
+               *     write!(f, "key does not exist: {}", key)
+               * } */
         }
     }
 }
