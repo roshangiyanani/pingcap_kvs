@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 
 use serde_json;
 
-use crate::{KvStore, Result};
+use crate::{util, KvStore, Result};
 
 /// An implementation of a key-value store using an in memory hashmap that
 /// only saves the store on close.
@@ -58,13 +58,11 @@ impl HashMapKvs {
     }
 
     fn save(&mut self) -> Result<()> {
-        // TODO: write and then rename rather than overwriting
-        let file = File::create(&self.backing)?;
-        serde_json::to_writer(file, &self.map)?;
-
-        self.mutated = false;
-
-        Ok(())
+        util::safe_overwrite(self.backing.clone(), |writer: BufWriter<File>| {
+            serde_json::to_writer(writer, &self.map)?;
+            self.mutated = false;
+            Ok(())
+        })
     }
 }
 

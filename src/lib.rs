@@ -6,7 +6,7 @@ A library for key-value storage.
 */
 
 mod kvs;
-pub use self::kvs::{HashMapKvs, KvStore, LogKvs};
+pub use self::kvs::*;
 
-mod errors;
-pub use self::errors::{Error, ErrorKind, Result};
+mod util;
+pub use self::util::*;
