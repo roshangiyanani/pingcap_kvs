@@ -1,8 +1,8 @@
 use std::fs::{File, OpenOptions};
-use std::io::BufWriter;
+use std::io::{BufReader, BufWriter, Read, Seek, Write};
 use std::path::Path;
 
-use crate::Result;
+use crate::{Error, Result};
 
 /// Used to write a file without overwriting the file that already existed. Does
 /// so by writing to a temporary file, then renaming the actual file to
@@ -43,6 +43,31 @@ where
         std::fs::rename(&tmp, &target)?;
         std::fs::remove_file(&backup)?;
     }
+
+    Ok(())
+}
+
+/// Similar to save_overwrite, but gives the function a reader to the old file.
+pub(crate) fn save_overwrite_with_reader<P: AsRef<Path>, F>(
+    path: P,
+    write_func: F,
+) -> Result<()>
+where
+    F: FnOnce(BufReader<File>, BufWriter<File>) -> Result<()>,
+{
+    let target = Path::new(path.as_ref());
+    let tmp = target.with_extension("tmp");
+    let backup = target.with_extension("backup");
+
+    let reader = File::open(&target)?;
+    let reader = BufReader::new(reader);
+    let writer = File::create(&tmp)?;
+    let writer = BufWriter::new(writer);
+    write_func(reader, writer)?;
+
+    std::fs::rename(&target, &backup);
+    std::fs::rename(&tmp, &target)?;
+    std::fs::remove_file(&backup)?;
 
     Ok(())
 }
