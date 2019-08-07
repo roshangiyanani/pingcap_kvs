@@ -1,8 +1,8 @@
 use std::fs::{File, OpenOptions};
-use std::io::{BufReader, BufWriter, Read, Seek, Write};
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
-use crate::{Error, Result};
+use crate::Result;
 
 /// Used to write a file without overwriting the file that already existed. Does
 /// so by writing to a temporary file, then renaming the actual file to
@@ -65,7 +65,7 @@ where
     let writer = BufWriter::new(writer);
     write_func(reader, writer)?;
 
-    std::fs::rename(&target, &backup);
+    std::fs::rename(&target, &backup)?;
     std::fs::rename(&tmp, &target)?;
     std::fs::remove_file(&backup)?;
 

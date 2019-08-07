@@ -1,59 +1,18 @@
 use std::collections::HashMap;
-use std::fs::{create_dir, File, OpenOptions};
-use std::io::{BufReader, BufWriter, Read, Seek, Write};
-use std::path::{Path, PathBuf};
+use std::fs::create_dir;
+use std::path::Path;
 
-use serde::{Deserialize, Serialize};
-use strum_macros::Display;
-
+use super::{Command, LogCommandPointer, LogFile};
 use crate::{Error, KvStore, Result};
 
-const DEFAULT_LOG_NAME: &str = "1";
-const DEFAULT_LOG_ID: usize = 1;
+pub const DEFAULT_LOG_NAME: &str = "1";
+pub const DEFAULT_LOG_ID: usize = 1;
 
 /// An implementation of a key-value store using an append-only log store.
 #[derive(Debug)]
 pub struct LogKvs {
     index: HashMap<String, LogCommandPointer>,
-    backing_dir: PathBuf,
-}
-
-#[derive(Debug, Display, Serialize, Deserialize)]
-enum LogCommand {
-    /// Add a value to the key-value store.
-    Set {
-        /// The name to store the value under.
-        key: String,
-        /// The value to store.
-        value: String,
-    },
-    /// Remove a value from the key-value store.
-    Remove {
-        /// The item to delete.
-        key: String,
-    },
-}
-
-impl LogCommand {
-    fn append<W: Write>(&self, writer: &mut W) -> Result<()> {
-        bincode::serialize_into(writer, self).map_err(Error::bincode)
-    }
-
-    fn read<R: Read>(reader: &mut R) -> Result<LogCommand> {
-        bincode::deserialize_from(reader).map_err(Error::bincode)
-    }
-}
-
-#[derive(Debug)]
-struct LogCommandPointer {
-    file_id: usize,
-    offset: u64,
-}
-
-impl LogCommandPointer {
-    fn new(file_id: usize, offset: u64) -> LogCommandPointer {
-        LogCommandPointer { file_id, offset }
-    }
+    log: LogFile,
 }
 
 impl LogKvs {
@@ -84,44 +43,44 @@ impl LogKvs {
     }
 
     fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = Path::new(path.as_ref());
+        let default_file = path.join(DEFAULT_LOG_NAME);
+
         let kvs = LogKvs {
             index: HashMap::new(),
-            backing_dir: PathBuf::from(path.as_ref()),
+            log: LogFile::new(default_file),
         };
 
         Ok(kvs)
     }
 
     fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = Path::new(path.as_ref());
+        let default_file = path.join(DEFAULT_LOG_NAME);
+
         let mut kvs = LogKvs {
             index: HashMap::new(),
-            backing_dir: PathBuf::from(path.as_ref()),
+            log: LogFile::new(default_file),
         };
 
-        let file = File::open(kvs.backing_dir.join(DEFAULT_LOG_NAME))?;
-        let mut reader = BufReader::new(file);
-        let end_pos = reader.stream_len()?;
-        let mut current_pos = reader.stream_position()?;
-        while current_pos < end_pos {
-            let command = LogCommand::read(&mut reader)?;
-            let pointer = LogCommandPointer::new(DEFAULT_LOG_ID, current_pos);
+        for record in kvs.log.iter()? {
+            let (command, pointer) = record?;
+            // println!("replaying {:?}, {:?}", command, pointer);
             kvs.replay(command, pointer)?;
-            current_pos = reader.stream_position()?;
         }
         Ok(kvs)
     }
 
     fn replay(
         &mut self,
-        command: LogCommand,
+        command: Command,
         pointer: LogCommandPointer,
     ) -> Result<()> {
         match command {
-            LogCommand::Set { key, value: _ } => {
+            Command::Set { key, .. } => {
                 self.index.insert(key, pointer);
-                Ok(())
             }
-            LogCommand::Remove { key } => {
+            Command::Remove { key } => {
                 self.index.remove(&key).ok_or_else(|| {
                     Error::corrupt_database(format!(
                         "attempted removal of nonexistent key '{}' from the \
@@ -129,39 +88,18 @@ impl LogKvs {
                         key
                     ))
                 })?;
-                Ok(())
             }
         }
-    }
-
-    fn append(&self, command: LogCommand) -> Result<LogCommandPointer> {
-        let file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .append(true)
-            .open(self.backing_dir.join(DEFAULT_LOG_NAME))?;
-        let mut writer = BufWriter::new(file);
-        let current_pos = writer.seek(std::io::SeekFrom::End(0))?;
-        command.append(&mut writer)?;
-        Ok(LogCommandPointer::new(DEFAULT_LOG_ID, current_pos))
-    }
-
-    fn get_command(&self, pointer: &LogCommandPointer) -> Result<LogCommand> {
-        let mut file = File::open(self.backing_dir.join(DEFAULT_LOG_NAME))?;
-        file.seek(std::io::SeekFrom::Start(pointer.offset))?;
-        let mut reader = BufReader::new(file);
-        LogCommand::read(&mut reader)
+        Ok(())
     }
 
     fn get_key(&self, pointer: &LogCommandPointer) -> Result<String> {
-        match self.get_command(pointer)? {
-            LogCommand::Set { key: _, value } => Ok(value),
-            LogCommand::Remove { key } => {
-                Err(Error::corrupt_database(format!(
-                    "LogCommand at {:?} should set key '{}', not remove it",
-                    pointer, key
-                )))
-            }
+        match self.log.get_command(pointer)? {
+            Command::Set { value, .. } => Ok(value),
+            Command::Remove { key } => Err(Error::corrupt_database(format!(
+                "Command at {:?} should set key '{}', not remove it",
+                pointer, key
+            ))),
         }
     }
 
@@ -183,7 +121,7 @@ impl KvStore for LogKvs {
     /// store.set("key1".to_owned(), "value1".to_owned());
     /// ```
     fn set(&mut self, key: String, value: String) -> Result<()> {
-        let pointer = self.append(LogCommand::Set {
+        let pointer = self.log.append(Command::Set {
             key: key.clone(),
             value: value.clone(),
         })?;
@@ -230,7 +168,7 @@ impl KvStore for LogKvs {
         match self.index.remove(&key) {
             Some(old_pointer) => {
                 // TODO: If append fails, index is now inconsistent
-                self.append(LogCommand::Remove { key })?;
+                self.log.append(Command::Remove { key })?;
                 self.get_key(&old_pointer).and_then(|value| Ok(Some(value)))
             }
             None => Ok(None),

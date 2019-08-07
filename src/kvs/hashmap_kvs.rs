@@ -58,11 +58,14 @@ impl HashMapKvs {
     }
 
     fn save(&mut self) -> Result<()> {
-        util::safe_overwrite(self.backing.clone(), |writer: BufWriter<File>| {
-            serde_json::to_writer(writer, &self.map)?;
-            self.mutated = false;
-            Ok(())
-        })
+        util::io::safe_overwrite(
+            self.backing.clone(),
+            |writer: BufWriter<File>| {
+                serde_json::to_writer(writer, &self.map)?;
+                self.mutated = false;
+                Ok(())
+            },
+        )
     }
 }
 
