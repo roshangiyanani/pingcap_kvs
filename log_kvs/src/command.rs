@@ -5,11 +5,12 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
-use super::DEFAULT_LOG_ID;
-use crate::{Error, Result};
+use crate::DEFAULT_LOG_ID;
+use core::{Error, Result};
+use io::save_overwrite_with_reader;
 
 #[derive(Debug, Display, Serialize, Deserialize)]
-pub(super) enum Command {
+pub(crate) enum Command {
     /// Add a value to the key-value store.
     Set {
         /// The name to store the value under.
@@ -34,8 +35,8 @@ impl Command {
     }
 }
 
-#[derive(Debug)]
-pub(super) struct LogCommandPointer {
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct LogCommandPointer {
     file_id: usize,
     offset: u64,
 }
@@ -47,7 +48,7 @@ impl LogCommandPointer {
 }
 
 #[derive(Debug)]
-pub(super) struct LogFile {
+pub(crate) struct LogFile {
     path: PathBuf,
 }
 
@@ -58,10 +59,10 @@ impl LogFile {
         }
     }
 
-    pub fn iter(&self) -> Result<CommandLogIterator<File>> {
+    pub fn iter(&self) -> Result<LogFileIterator<File>> {
         let file = File::open(&self.path)?;
         let reader = BufReader::new(file);
-        CommandLogIterator::new(reader)
+        LogFileIterator::new(reader)
     }
 
     pub fn get_command(&self, pointer: &LogCommandPointer) -> Result<Command> {
@@ -70,6 +71,7 @@ impl LogFile {
         let mut reader = BufReader::new(file);
         Command::read(&mut reader)
     }
+
     pub fn append(&self, command: Command) -> Result<LogCommandPointer> {
         let file = OpenOptions::new()
             .create(true)
@@ -81,21 +83,30 @@ impl LogFile {
         command.append(&mut writer)?;
         Ok(LogCommandPointer::new(DEFAULT_LOG_ID, pos))
     }
+
+    pub fn rewrite<F>(&self, write_func: F) -> Result<()>
+    where
+        F: FnOnce(LogFileIterator<File>, BufWriter<File>) -> Result<()>,
+    {
+        save_overwrite_with_reader(&self.path, |reader, writer| {
+            write_func(LogFileIterator::new(reader)?, writer)
+        })
+    }
 }
 
-pub(super) struct CommandLogIterator<R: Read + Seek> {
+pub(crate) struct LogFileIterator<R: Read + Seek> {
     reader: BufReader<R>,
     end_pos: u64,
 }
 
-impl<R: Read + Seek> CommandLogIterator<R> {
-    fn new(mut reader: BufReader<R>) -> Result<CommandLogIterator<R>> {
+impl<R: Read + Seek> LogFileIterator<R> {
+    pub fn new(mut reader: BufReader<R>) -> Result<LogFileIterator<R>> {
         let end_pos = reader.stream_len()?;
-        Ok(CommandLogIterator { reader, end_pos })
+        Ok(LogFileIterator { reader, end_pos })
     }
 }
 
-impl<R: Read + Seek> Iterator for CommandLogIterator<R> {
+impl<R: Read + Seek> Iterator for LogFileIterator<R> {
     type Item = Result<(Command, LogCommandPointer)>;
 
     fn next(&mut self) -> Option<Self::Item> {

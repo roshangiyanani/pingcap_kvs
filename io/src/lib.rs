@@ -2,15 +2,12 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
-use crate::Result;
+use core::Result;
 
 /// Used to write a file without overwriting the file that already existed. Does
 /// so by writing to a temporary file, then renaming the actual file to
 /// something different, then renaming the new one.
-pub(crate) fn safe_overwrite<P: AsRef<Path>, F>(
-    path: P,
-    write_func: F,
-) -> Result<()>
+pub fn safe_overwrite<P: AsRef<Path>, F>(path: P, write_func: F) -> Result<()>
 where
     F: FnOnce(BufWriter<File>) -> Result<()>,
 {
@@ -48,7 +45,7 @@ where
 }
 
 /// Similar to save_overwrite, but gives the function a reader to the old file.
-pub(crate) fn save_overwrite_with_reader<P: AsRef<Path>, F>(
+pub fn save_overwrite_with_reader<P: AsRef<Path>, F>(
     path: P,
     write_func: F,
 ) -> Result<()>

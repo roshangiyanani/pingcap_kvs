@@ -19,22 +19,24 @@ impl Error {
     }
 
     /// Shortcut for constructing an Io error.
-    pub(crate) fn io(err: io::Error) -> Error {
+    pub fn io(err: io::Error) -> Error {
         Error::from(ErrorKind::Io(err.to_string()))
     }
 
+    // TODO: find way to remove serde_json and bincode dependencies just for
+    // error handling
     /// Shortcut for constructing a Serde error.
-    pub(crate) fn serde(err: serde_json::Error) -> Error {
+    pub fn serde(err: serde_json::Error) -> Error {
         Error::from(ErrorKind::Serde(err.to_string()))
     }
 
     /// Shortcut for constructing a Serde error from a Bincode error.
-    pub(crate) fn bincode(err: bincode::Error) -> Error {
+    pub fn bincode(err: bincode::Error) -> Error {
         Error::from(ErrorKind::Serde(err.to_string()))
     }
 
     /// Shortcut for constructing a CorruptDatabase error
-    pub(crate) fn corrupt_database(msg: String) -> Error {
+    pub fn corrupt_database(msg: String) -> Error {
         Error::from(ErrorKind::CorruptDatabase(msg))
     }
 

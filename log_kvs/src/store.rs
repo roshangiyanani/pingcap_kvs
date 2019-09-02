@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::fs::create_dir;
 use std::path::Path;
 
-use super::{Command, LogCommandPointer, LogFile};
-use crate::{Error, KvStore, Result};
+use crate::{Command, LogCommandPointer, LogFile};
+use core::{Compactable, Error, KvStore, Result};
 
 pub const DEFAULT_LOG_NAME: &str = "1";
 pub const DEFAULT_LOG_ID: usize = 1;
@@ -19,11 +19,12 @@ impl LogKvs {
     /// Initialize the key value store
     ///
     /// ```rust
+    /// use log_kvs::LogKvs;
     /// use tempfile::TempDir;
     ///
     /// let temp_dir =
     ///     TempDir::new().expect("unable to create temporary working directory");
-    /// let mut store = kvs::LogKvs::open(temp_dir.path()).unwrap();
+    /// let mut store = LogKvs::open(temp_dir.path()).unwrap();
     /// ```
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = Path::new(path.as_ref());
@@ -102,9 +103,53 @@ impl LogKvs {
             ))),
         }
     }
+}
 
-    fn compact<P: AsRef<Path>>(path: P) -> Result<Self> {
-        unimplemented!()
+impl Compactable for LogKvs {
+    /// Compact the key-value store. Return an error if unsuccessful.
+    ///
+    /// ```rust
+    /// # use tempfile::TempDir;
+    /// # use core::{KvStore, Compactable};
+    /// # use log_kvs::LogKvs;
+    ///
+    /// # let temp_dir =
+    /// #     TempDir::new().expect("unable to create temporary working directory");
+    /// # let mut store = LogKvs::open(temp_dir.path()).unwrap();
+    /// # store.set("key1".to_owned(), "value1".to_owned());
+    /// # store.remove("key1".to_owned());
+    /// store.compact();
+    /// ```
+    fn compact(&mut self) -> Result<()> {
+        self.log.rewrite(|iter, mut writer| {
+            for record in iter {
+                let (command, pointer) = record?;
+                match command {
+                    Command::Set { key, value } => {
+                        match self.index.get(&key) {
+                            Some(current_pointer)
+                                if pointer == *current_pointer =>
+                            {
+                                // this is a valid key and the current value
+                                Command::Set { key, value }
+                                    .append(&mut writer)?;
+                            }
+                            Some(_) => {
+                                // this is a valid key, but not the current
+                                // value
+                            }
+                            None => {
+                                // invalid key
+                            }
+                        }
+                    }
+                    Command::Remove { .. } => {
+                        // once removed, the key is no longer needed
+                    }
+                }
+            }
+            Ok(())
+        })
     }
 }
 
@@ -113,11 +158,12 @@ impl KvStore for LogKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use kvs::KvStore;
-    /// #
+    /// # use core::KvStore;
+    /// # use log_kvs::LogKvs;
+    ///
     /// # let temp_dir =
     /// #    TempDir::new().expect("unable to create temporary working directory");
-    /// # let mut store = kvs::LogKvs::open(temp_dir.path()).unwrap();
+    /// # let mut store = LogKvs::open(temp_dir.path()).unwrap();
     /// store.set("key1".to_owned(), "value1".to_owned());
     /// ```
     fn set(&mut self, key: String, value: String) -> Result<()> {
@@ -134,11 +180,12 @@ impl KvStore for LogKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use kvs::KvStore;
+    /// # use core::KvStore;
+    /// # use log_kvs::LogKvs;
     /// #
     /// # let temp_dir =
     /// #    TempDir::new().expect("unable to create temporary working directory");
-    /// # let mut store = kvs::LogKvs::open(temp_dir.path()).unwrap();
+    /// # let mut store = LogKvs::open(temp_dir.path()).unwrap();
     /// store.set("key1".to_owned(), "value1".to_owned());
     /// store.get("key1".to_owned());
     /// ```
@@ -156,11 +203,12 @@ impl KvStore for LogKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use kvs::KvStore;
+    /// # use core::KvStore;
+    /// # use log_kvs::LogKvs;
     /// #
     /// # let temp_dir =
     /// #     TempDir::new().expect("unable to create temporary working directory");
-    /// # let mut store = kvs::LogKvs::open(temp_dir.path()).unwrap();
+    /// # let mut store = LogKvs::open(temp_dir.path()).unwrap();
     /// store.set("key1".to_owned(), "value1".to_owned());
     /// store.remove("key1".to_owned());
     /// ```
@@ -177,12 +225,13 @@ impl KvStore for LogKvs {
 
     /// Save (if it has been changed) and close the key-value store.
     /// ```rust
-    /// use kvs::KvStore;
+    /// use core::KvStore;
+    /// use log_kvs::LogKvs;
     /// use tempfile::TempDir;
     ///
     /// let temp_dir =
     ///     TempDir::new().expect("unable to create temporary working directory");
-    /// let mut store = kvs::LogKvs::open(temp_dir.path()).unwrap();
+    /// let mut store = LogKvs::open(temp_dir.path()).unwrap();
     /// store.close().unwrap();
     /// ```
     fn close(self) -> Result<()> {

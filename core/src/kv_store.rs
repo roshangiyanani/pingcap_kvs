@@ -16,3 +16,9 @@ pub trait KvStore {
     /// Close the key-value store. Return an error if unable to close it.
     fn close(self) -> Result<()>;
 }
+
+/// Trait for compactable key value stores
+pub trait Compactable: KvStore {
+    /// Compacts the key value store
+    fn compact(&mut self) -> Result<()>;
+}

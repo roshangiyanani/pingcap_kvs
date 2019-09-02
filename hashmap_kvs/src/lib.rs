@@ -1,3 +1,9 @@
+#![deny(missing_docs)]
+
+/*!
+ * A library exposing a key-value store that uses an in-memory hashmap.
+ */
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -5,7 +11,8 @@ use std::path::{Path, PathBuf};
 
 use serde_json;
 
-use crate::{util, KvStore, Result};
+use core::{KvStore, Result};
+use io::safe_overwrite;
 
 /// An implementation of a key-value store using an in memory hashmap that
 /// only saves the store on close.
@@ -24,7 +31,8 @@ impl HashMapKvs {
     ///
     /// let temp_dir =
     ///     TempDir::new().expect("unable to create temporary working directory");
-    /// let mut store = kvs::HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
+    /// let mut store =
+    ///     hashmap_kvs::HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
     /// ```
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         if path.as_ref().is_file() {
@@ -58,14 +66,11 @@ impl HashMapKvs {
     }
 
     fn save(&mut self) -> Result<()> {
-        util::io::safe_overwrite(
-            self.backing.clone(),
-            |writer: BufWriter<File>| {
-                serde_json::to_writer(writer, &self.map)?;
-                self.mutated = false;
-                Ok(())
-            },
-        )
+        safe_overwrite(self.backing.clone(), |writer: BufWriter<File>| {
+            serde_json::to_writer(writer, &self.map)?;
+            self.mutated = false;
+            Ok(())
+        })
     }
 }
 
@@ -74,11 +79,12 @@ impl KvStore for HashMapKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use kvs::KvStore;
+    /// # use core::KvStore;
+    /// # use hashmap_kvs::HashMapKvs;
     /// #
     /// # let temp_dir =
     /// #    TempDir::new().expect("unable to create temporary working directory");
-    /// # let mut store = kvs::HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
+    /// # let mut store = HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
     /// store.set("key1".to_owned(), "value1".to_owned());
     /// ```
     fn set(&mut self, key: String, value: String) -> Result<()> {
@@ -92,11 +98,12 @@ impl KvStore for HashMapKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use kvs::KvStore;
+    /// # use core::KvStore;
+    /// # use hashmap_kvs::HashMapKvs;
     /// #
     /// # let temp_dir =
     /// #    TempDir::new().expect("unable to create temporary working directory");
-    /// # let mut store = kvs::HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
+    /// # let mut store = HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
     /// store.set("key1".to_owned(), "value1".to_owned());
     /// store.get("key1".to_owned());
     /// ```
@@ -109,11 +116,12 @@ impl KvStore for HashMapKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use kvs::KvStore;
+    /// # use core::KvStore;
+    /// # use hashmap_kvs::HashMapKvs;
     /// #
     /// # let temp_dir =
     /// #     TempDir::new().expect("unable to create temporary working directory");
-    /// # let mut store = kvs::HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
+    /// # let mut store = HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
     /// store.set("key1".to_owned(), "value1".to_owned());
     /// store.remove("key1".to_owned());
     /// ```
@@ -127,12 +135,13 @@ impl KvStore for HashMapKvs {
 
     /// Save (if it has been changed) and close the key-value store.
     /// ```rust
-    /// use kvs::KvStore;
+    /// use core::KvStore;
+    /// use hashmap_kvs::HashMapKvs;
     /// use tempfile::TempDir;
     ///
     /// let temp_dir =
     ///     TempDir::new().expect("unable to create temporary working directory");
-    /// let mut store = kvs::HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
+    /// let mut store = HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
     /// store.close().unwrap();
     /// ```
     fn close(mut self) -> Result<()> {
