@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json;
 
-use core::{KvStore, Result};
+use core::{ExplicitlyPersistent, KvStore, Result};
 use io::safe_overwrite;
 
 /// An implementation of a key-value store using an in memory hashmap that
@@ -62,14 +62,6 @@ impl HashMapKvs {
             map,
             backing: PathBuf::from(path.as_ref()),
             mutated: false,
-        })
-    }
-
-    fn save(&mut self) -> Result<()> {
-        safe_overwrite(self.backing.clone(), |writer: BufWriter<File>| {
-            serde_json::to_writer(writer, &self.map)?;
-            self.mutated = false;
-            Ok(())
         })
     }
 }
@@ -150,6 +142,16 @@ impl KvStore for HashMapKvs {
         } else {
             Ok(())
         }
+    }
+}
+
+impl ExplicitlyPersistent for HashMapKvs {
+    fn save(&mut self) -> Result<()> {
+        safe_overwrite(self.backing.clone(), |writer: BufWriter<File>| {
+            serde_json::to_writer(writer, &self.map)?;
+            self.mutated = false;
+            Ok(())
+        })
     }
 }
 

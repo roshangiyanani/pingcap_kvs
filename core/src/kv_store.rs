@@ -22,3 +22,9 @@ pub trait Compactable: KvStore {
     /// Compacts the key value store
     fn compact(&mut self) -> Result<()>;
 }
+
+/// Defines a trait for manually persistant key value stores
+pub trait ExplicitlyPersistent: KvStore + Drop {
+    /// Saves the key value store to some kind of persistant storage
+    fn save(&mut self) -> Result<()>;
+}
