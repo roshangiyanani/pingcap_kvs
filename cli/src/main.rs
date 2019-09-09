@@ -1,16 +1,12 @@
-use std::path::PathBuf;
-
-use structopt::StructOpt;
-#[macro_use]
-extern crate strum_macros;
-use strum_macros::Display;
-
 use core::Result;
 use hashmap_kvs::HashMapKvs;
 use log_kvs::LogKvs;
+use structopt::StructOpt;
 
-mod command;
-use command::{Command, Commandable};
+mod args;
+use args::{Opt, Store};
+mod commandable;
+use commandable::Commandable;
 
 fn main() -> Result<()> {
     let opt = Opt::from_args();
@@ -19,33 +15,6 @@ fn main() -> Result<()> {
         Store::Log => Box::new(LogKvs::open(opt.location).unwrap()),
     };
     store.execute(opt.command)
-}
-
-#[derive(Debug, StructOpt)]
-struct Opt {
-    /// Which type of backing store to use.
-    #[structopt(short, long, default_value = "hashmap")]
-    store: Store,
-    /// The location to load and save the backing store.
-    #[structopt(
-        short,
-        long,
-        parse(from_os_str),
-        default_value = "../target/store"
-    )]
-    location: PathBuf,
-    #[structopt(subcommand)]
-    command: Command,
-}
-
-#[derive(Debug, Display, EnumString, StructOpt)]
-enum Store {
-    /// Use a hashmap backed to the given file location.
-    #[strum(serialize = "hashmap")]
-    HashMap,
-    /// Use an append-only log store backed in the given directory location.
-    #[strum(serialize = "log")]
-    Log,
 }
 
 #[cfg(test)]

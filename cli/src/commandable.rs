@@ -1,36 +1,8 @@
-use structopt::StructOpt;
-use strum_macros::Display;
-
 use core::{Compactable, KvStore, Result};
 use hashmap_kvs::HashMapKvs;
 use log_kvs::LogKvs;
 
-#[derive(Debug, Display, StructOpt)]
-pub(crate) enum Command {
-    #[structopt(name = "get")]
-    /// Retrieve a value from the key-value store.
-    Get {
-        /// The item to retreive the value of.
-        key: String,
-    },
-    #[structopt(name = "set")]
-    /// Add a value to the key-value store.
-    Set {
-        /// The name to store the value under.
-        key: String,
-        /// The value to store.
-        value: String,
-    },
-    #[structopt(name = "rm")]
-    /// Remove a value from the key-value store.
-    Remove {
-        /// The item to delete.
-        key: String,
-    },
-    #[structopt(name = "compact")]
-    /// Compact the key-value store's storage.
-    Compact,
-}
+use crate::args::Command;
 
 pub(crate) trait Commandable: KvStore {
     fn execute_get(&self, key: String) -> Result<()> {
