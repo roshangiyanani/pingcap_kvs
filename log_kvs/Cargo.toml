@@ -7,11 +7,16 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-core = { path = "../core" }
 io = { path = "../io" }
 serde = { version = "1.0.99", features = ["derive"] }
 strum_macros = "0.15.0"
 bincode = "1.1.4"
+
+[target.'cfg(not(test))'.dependencies]
+core = { path = "../core" }
+
+[target.'cfg(test)'.dependencies]
+core = { path = "../core", features = ["impl-tests"] }
 
 [dev-dependencies]
 walkdir = "2.2.9"

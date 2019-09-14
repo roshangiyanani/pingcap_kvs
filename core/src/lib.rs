@@ -9,3 +9,7 @@ pub use self::kv_store::*;
 
 mod errors;
 pub use self::errors::*;
+
+// TODO: Investigate why these feature flags don't seem to be enforced
+#[cfg(feature = "impl-tests")]
+pub mod tests;

@@ -2,6 +2,7 @@ use core::{ExplicitlyPersistent, KvStore, Result};
 
 use crate::HashMapKvs;
 
+// #[cfg_attr(test, test_impl)]
 impl KvStore for HashMapKvs {
     /// Set a value. If the key already existed, the old value is overwritten.
     ///
@@ -84,105 +85,37 @@ impl KvStore for HashMapKvs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
+    use core::tests::KvStoreTests;
+    use std::path::Path;
 
-    // Should get previously stored value
+    impl KvStoreTests for HashMapKvs {
+        fn open<P: AsRef<Path>>(dir: P) -> Result<Self> {
+            HashMapKvs::open(dir.as_ref().join("kvs"))
+        }
+    }
+
     #[test]
     fn get_stored_value() -> Result<()> {
-        let temp_dir = TempDir::new()
-            .expect("unable to create temporary working directory");
-
-        {
-            let mut store = HashMapKvs::open(temp_dir.path().join("kvs"))?;
-
-            store.set("key1".to_owned(), "value1".to_owned())?;
-            store.set("key2".to_owned(), "value2".to_owned())?;
-
-            assert_eq!(
-                store.get("key1".to_owned())?,
-                Some("value1".to_owned())
-            );
-            assert_eq!(
-                store.get("key2".to_owned())?,
-                Some("value2".to_owned())
-            );
-        }
-
-        // Open from disk again and check persistent data
-        {
-            let store = HashMapKvs::open(temp_dir.path().join("kvs"))?;
-            assert_eq!(
-                store.get("key1".to_owned())?,
-                Some("value1".to_owned())
-            );
-            assert_eq!(
-                store.get("key2".to_owned())?,
-                Some("value2".to_owned())
-            );
-        }
-
-        Ok(())
+        HashMapKvs::test_get_stored_value()
     }
 
-    // Should overwrite existent value
     #[test]
     fn overwrite_value() -> Result<()> {
-        let temp_dir = TempDir::new()
-            .expect("unable to create temporary working directory");
-        let mut store = HashMapKvs::open(temp_dir.path().join("kvs"))?;
-
-        store.set("key1".to_owned(), "value1".to_owned())?;
-        assert_eq!(store.get("key1".to_owned())?, Some("value1".to_owned()));
-        store.set("key1".to_owned(), "value2".to_owned())?;
-        assert_eq!(store.get("key1".to_owned())?, Some("value2".to_owned()));
-
-        // Open from disk again and check persistent data
-        drop(store);
-        let mut store = HashMapKvs::open(temp_dir.path().join("kvs"))?;
-        assert_eq!(store.get("key1".to_owned())?, Some("value2".to_owned()));
-        store.set("key1".to_owned(), "value3".to_owned())?;
-        assert_eq!(store.get("key1".to_owned())?, Some("value3".to_owned()));
-
-        Ok(())
+        HashMapKvs::test_overwrite_value()
     }
 
-    // Should get `None` when getting a non-existent key
     #[test]
     fn get_non_existent_value() -> Result<()> {
-        let temp_dir = TempDir::new()
-            .expect("unable to create temporary working directory");
-        let mut store = HashMapKvs::open(temp_dir.path().join("kvs"))?;
-
-        store.set("key1".to_owned(), "value1".to_owned())?;
-        assert_eq!(store.get("key2".to_owned())?, None);
-
-        // Open from disk again and check persistent data
-        drop(store);
-        let store = HashMapKvs::open(temp_dir.path().join("kvs"))?;
-        assert_eq!(store.get("key2".to_owned())?, None);
-
-        Ok(())
+        HashMapKvs::test_get_nonexistent_value()
     }
 
     #[test]
     fn remove_non_existent_key() -> Result<()> {
-        let temp_dir = TempDir::new()
-            .expect("unable to create temporary working directory");
-        let mut store = HashMapKvs::open(temp_dir.path().join("kvs"))?;
-        let status = store.remove("key1".to_owned());
-        assert!(status.is_ok());
-        assert!(status.unwrap().is_none());
-        Ok(())
+        HashMapKvs::test_remove_non_existent_key()
     }
 
     #[test]
     fn remove_key() -> Result<()> {
-        let temp_dir = TempDir::new()
-            .expect("unable to create temporary working directory");
-        let mut store = HashMapKvs::open(temp_dir.path().join("kvs"))?;
-        store.set("key1".to_owned(), "value1".to_owned())?;
-        assert!(store.remove("key1".to_owned()).is_ok());
-        assert_eq!(store.get("key1".to_owned())?, None);
-        Ok(())
+        HashMapKvs::test_remove_key()
     }
 }
