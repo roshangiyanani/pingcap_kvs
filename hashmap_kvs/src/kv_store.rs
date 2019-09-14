@@ -85,10 +85,11 @@ impl KvStore for HashMapKvs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::tests::KvStoreTests;
+
+    use core::{CoreTests, Testable};
     use std::path::Path;
 
-    impl KvStoreTests for HashMapKvs {
+    impl Testable for HashMapKvs {
         fn open<P: AsRef<Path>>(dir: P) -> Result<Self> {
             HashMapKvs::open(dir.as_ref().join("kvs"))
         }

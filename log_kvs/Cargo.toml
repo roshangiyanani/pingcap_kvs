@@ -19,5 +19,4 @@ core = { path = "../core" }
 core = { path = "../core", features = ["impl-tests"] }
 
 [dev-dependencies]
-walkdir = "2.2.9"
 tempfile = "3.1.0"
