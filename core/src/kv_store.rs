@@ -31,11 +31,14 @@ pub mod kv_store_tests {
         ( $t: ty ) => {
             use $crate::kv_store_tests::CoreTests;
 
-            test_function!($t, test_get_stored_value);
-            test_function!($t, test_overwrite_value);
-            test_function!($t, test_get_nonexistent_value);
-            test_function!($t, test_remove_non_existent_key);
-            test_function!($t, test_remove_key);
+            test_functions!(
+                $t,
+                test_get_stored_value,
+                test_overwrite_value,
+                test_get_nonexistent_value,
+                test_remove_non_existent_key,
+                test_remove_key
+            );
         };
     }
 

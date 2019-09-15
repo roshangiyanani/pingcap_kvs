@@ -40,10 +40,13 @@ pub mod persistent_tests {
         ( $t: ty ) => {
             use $crate::persistent_tests::PersistentTests;
 
-            test_function!($t, test_storing_values);
-            test_function!($t, test_overwriting_values);
-            test_function!($t, test_nonexistent_values);
-            test_function!($t, test_removals);
+            test_functions!(
+                $t,
+                test_storing_values,
+                test_overwriting_values,
+                test_nonexistent_values,
+                test_removals
+            );
         };
     }
 

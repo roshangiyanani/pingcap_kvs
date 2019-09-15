@@ -29,7 +29,7 @@ pub mod compactable_tests {
         ( $t: ty ) => {
             use $crate::compactable_tests::CompactableTests;
 
-            test_function!($t, test_compaction);
+            test_functions!($t, test_compaction);
         };
     }
 
