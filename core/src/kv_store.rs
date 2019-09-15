@@ -24,14 +24,29 @@ pub trait ExplicitlyPersistent: KvStore + Drop {
 }
 
 #[cfg(feature = "impl-tests")]
-pub mod tests {
+/// Functions, traits, and macros for easily testing KvStore implementation.
+pub mod kv_store_tests {
     use super::*;
 
     use tempfile::TempDir;
 
-    use crate::Testable;
+    use crate::tests::Testable;
 
     impl<S> CoreTests for S where S: Testable {}
+
+    #[macro_export]
+    /// Generate tests for the given type using all the CoreTest functions
+    macro_rules! generate_core_tests {
+        ( $t: ty ) => {
+            use $crate::kv_store_tests::CoreTests;
+
+            test_function!($t, test_get_stored_value);
+            test_function!($t, test_overwrite_value);
+            test_function!($t, test_get_nonexistent_value);
+            test_function!($t, test_remove_non_existent_key);
+            test_function!($t, test_remove_key);
+        };
+    }
 
     /// functions to test core KvStore implementations.
     pub trait CoreTests: Testable {

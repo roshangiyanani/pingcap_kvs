@@ -242,7 +242,7 @@ impl KvStore for LogKvs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::{CompactableTests, CoreTests, Testable};
+    use core::tests::Testable;
     use std::path::Path;
 
     impl Testable for LogKvs {
@@ -251,33 +251,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn get_stored_value() -> Result<()> {
-        LogKvs::test_get_stored_value()
-    }
-
-    #[test]
-    fn overwrite_value() -> Result<()> {
-        LogKvs::test_overwrite_value()
-    }
-
-    #[test]
-    fn get_non_existent_value() -> Result<()> {
-        LogKvs::test_get_nonexistent_value()
-    }
-
-    #[test]
-    fn remove_non_existent_key() -> Result<()> {
-        LogKvs::test_remove_non_existent_key()
-    }
-
-    #[test]
-    fn remove_key() -> Result<()> {
-        LogKvs::test_remove_key()
-    }
-
-    // #[test]
-    fn compaction() -> Result<()> {
-        LogKvs::test_compaction()
-    }
+    generate_core_tests!(LogKvs);
+    // generate_compactable_tests!(LogKvs);
 }

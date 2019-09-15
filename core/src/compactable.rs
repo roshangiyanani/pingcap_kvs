@@ -1,3 +1,7 @@
+/*!
+ * Traits and tests related to Compactability.
+ */
+
 use crate::{KvStore, Result};
 
 /// Trait for compactable key value stores
@@ -7,15 +11,27 @@ pub trait Compactable: KvStore {
 }
 
 #[cfg(feature = "impl-tests")]
-pub mod tests {
+/// Contains functions, traits, and macros for easy testing of
+/// a Compactable implementation.
+pub mod compactable_tests {
     use super::*;
 
     use tempfile::TempDir;
     use walkdir::WalkDir;
 
-    use crate::Testable;
+    use crate::tests::Testable;
 
     impl<S> CompactableTests for S where S: Testable + Compactable {}
+
+    #[macro_export]
+    /// Generate tests for the given type using the CompactableTests function.
+    macro_rules! generate_compactable_tests {
+        ( $t: ty ) => {
+            use $crate::compactable_tests::CompactableTests;
+
+            test_function!($t, test_compaction);
+        };
+    }
 
     /// Functions to test compactability.
     pub trait CompactableTests: Testable + Compactable {

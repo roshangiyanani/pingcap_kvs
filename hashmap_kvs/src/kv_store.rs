@@ -85,8 +85,7 @@ impl KvStore for HashMapKvs {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use core::{CoreTests, Testable};
+    use core::tests::Testable;
     use std::path::Path;
 
     impl Testable for HashMapKvs {
@@ -95,28 +94,5 @@ mod tests {
         }
     }
 
-    #[test]
-    fn get_stored_value() -> Result<()> {
-        HashMapKvs::test_get_stored_value()
-    }
-
-    #[test]
-    fn overwrite_value() -> Result<()> {
-        HashMapKvs::test_overwrite_value()
-    }
-
-    #[test]
-    fn get_non_existent_value() -> Result<()> {
-        HashMapKvs::test_get_nonexistent_value()
-    }
-
-    #[test]
-    fn remove_non_existent_key() -> Result<()> {
-        HashMapKvs::test_remove_non_existent_key()
-    }
-
-    #[test]
-    fn remove_key() -> Result<()> {
-        HashMapKvs::test_remove_key()
-    }
+    generate_core_tests!(HashMapKvs);
 }

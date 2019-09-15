@@ -12,3 +12,14 @@ pub trait Testable: KvStore + Sized {
     /// If given the same directory, must open the same store.
     fn open<P: AsRef<Path>>(dir: P) -> Result<Self>;
 }
+
+#[macro_export]
+/// Generate a test that calls the given function on the given type
+macro_rules! test_function {
+    ( $t: ty, $n: ident ) => {
+        #[test]
+        fn $n() -> Result<()> {
+            <$t>::$n()
+        }
+    };
+}
