@@ -9,10 +9,12 @@
 #[macro_use]
 extern crate core;
 
-mod store;
-pub use store::LogKvs;
-
 mod command;
 pub(crate) use command::*;
 
+mod compactable;
+mod kv_store;
 mod persistent;
+
+mod log_core;
+pub use log_core::LogKvs;
