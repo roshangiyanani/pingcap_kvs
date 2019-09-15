@@ -5,9 +5,10 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
-use crate::DEFAULT_LOG_ID;
 use core::{Error, Result};
 use io::save_overwrite_with_reader;
+
+use crate::LogKvs;
 
 #[derive(Debug, Display, Serialize, Deserialize)]
 pub(crate) enum Command {
@@ -81,7 +82,7 @@ impl LogFile {
         let mut writer = BufWriter::new(file);
         let pos = writer.seek(std::io::SeekFrom::End(0))?;
         command.append(&mut writer)?;
-        Ok(LogCommandPointer::new(DEFAULT_LOG_ID, pos))
+        Ok(LogCommandPointer::new(LogKvs::DEFAULT_LOG_ID, pos))
     }
 
     pub fn rewrite<F>(&self, write_func: F) -> Result<()>
@@ -115,7 +116,10 @@ impl<R: Read + Seek> Iterator for LogFileIterator<R> {
                 Some(match Command::read(&mut self.reader) {
                     Ok(command) => Ok((
                         command,
-                        LogCommandPointer::new(DEFAULT_LOG_ID, current_pos),
+                        LogCommandPointer::new(
+                            LogKvs::DEFAULT_LOG_ID,
+                            current_pos,
+                        ),
                     )),
                     Err(err) => Err(err),
                 })

@@ -1,4 +1,4 @@
-use core::Result;
+use core::{Persistent, Result};
 use hashmap_kvs::HashMapKvs;
 use log_kvs::LogKvs;
 use structopt::StructOpt;

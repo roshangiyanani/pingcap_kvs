@@ -10,6 +10,6 @@ extern crate core;
 
 mod hashmap_core;
 mod kv_store;
-mod persistence;
+mod persistent;
 
 pub use hashmap_core::HashMapKvs;

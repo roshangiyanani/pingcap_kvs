@@ -2,10 +2,10 @@
  * Traits and tests related to Compactability.
  */
 
-use crate::{KvStore, Result};
+use crate::{KvStore, Persistent, Result};
 
 /// Trait for compactable key value stores
-pub trait Compactable: KvStore {
+pub trait Compactable: KvStore + Persistent {
     /// Compacts the key value store
     fn compact(&mut self) -> Result<()>;
 }
@@ -40,7 +40,7 @@ pub mod compactable_tests {
         fn test_compaction() -> Result<()> {
             let temp_dir = TempDir::new()
                 .expect("unable to create temporary working directory");
-            let mut store = Self::open(temp_dir.path())?;
+            let mut store: Self = Testable::open(temp_dir.path())?;
 
             let dir_size = || {
                 let entries = WalkDir::new(temp_dir.path()).into_iter();
@@ -70,7 +70,7 @@ pub mod compactable_tests {
 
                 drop(store);
                 // reopen and check content
-                let store = Self::open(temp_dir.path())?;
+                let store: Self = Testable::open(temp_dir.path())?;
                 for key_id in 0..1000 {
                     let key = format!("key{}", key_id);
                     assert_eq!(store.get(key)?, Some(format!("{}", iter)));

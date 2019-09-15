@@ -12,15 +12,6 @@ pub trait KvStore {
     /// Remove a key-value, returning the value. If the key does not exist,
     /// return None. Return an error if the key is not removed successfully.
     fn remove(&mut self, key: String) -> Result<Option<String>>;
-
-    /// Close the key-value store. Return an error if unable to close it.
-    fn close(self) -> Result<()>;
-}
-
-/// Defines a trait for manually persistant key value stores
-pub trait ExplicitlyPersistent: KvStore + Drop {
-    /// Saves the key value store to some kind of persistant storage
-    fn save(&mut self) -> Result<()>;
 }
 
 #[cfg(feature = "impl-tests")]
@@ -48,40 +39,26 @@ pub mod kv_store_tests {
         };
     }
 
-    /// functions to test core KvStore implementations.
+    /// Functions to test core KvStore implementations.
     pub trait CoreTests: Testable {
         /// Should get previously stored value
         fn test_get_stored_value() -> Result<()> {
             let temp_dir = TempDir::new()
                 .expect("unable to create temporary working directory");
-            {
-                let mut store = Self::open(&temp_dir)?;
 
-                store.set("key1".to_owned(), "value1".to_owned())?;
-                store.set("key2".to_owned(), "value2".to_owned())?;
+            let mut store = Self::open(&temp_dir)?;
 
-                assert_eq!(
-                    store.get("key1".to_owned())?,
-                    Some("value1".to_owned())
-                );
-                assert_eq!(
-                    store.get("key2".to_owned())?,
-                    Some("value2".to_owned())
-                );
-            }
+            store.set("key1".to_owned(), "value1".to_owned())?;
+            store.set("key2".to_owned(), "value2".to_owned())?;
 
-            // Open from disk again and check persistent data
-            {
-                let store = Self::open(&temp_dir)?;
-                assert_eq!(
-                    store.get("key1".to_owned())?,
-                    Some("value1".to_owned())
-                );
-                assert_eq!(
-                    store.get("key2".to_owned())?,
-                    Some("value2".to_owned())
-                );
-            }
+            assert_eq!(
+                store.get("key1".to_owned())?,
+                Some("value1".to_owned())
+            );
+            assert_eq!(
+                store.get("key2".to_owned())?,
+                Some("value2".to_owned())
+            );
             Ok(())
         }
 
@@ -89,34 +66,20 @@ pub mod kv_store_tests {
         fn test_overwrite_value() -> Result<()> {
             let temp_dir = TempDir::new()
                 .expect("unable to create temporary working directory");
-            {
-                let mut store = Self::open(&temp_dir)?;
 
-                store.set("key1".to_owned(), "value1".to_owned())?;
-                assert_eq!(
-                    store.get("key1".to_owned())?,
-                    Some("value1".to_owned())
-                );
-                store.set("key1".to_owned(), "value2".to_owned())?;
-                assert_eq!(
-                    store.get("key1".to_owned())?,
-                    Some("value2".to_owned())
-                );
-            }
+            let mut store = Self::open(&temp_dir)?;
 
-            {
-                // Open from disk again and check persistent data
-                let mut store = Self::open(&temp_dir)?;
-                assert_eq!(
-                    store.get("key1".to_owned())?,
-                    Some("value2".to_owned())
-                );
-                store.set("key1".to_owned(), "value3".to_owned())?;
-                assert_eq!(
-                    store.get("key1".to_owned())?,
-                    Some("value3".to_owned())
-                );
-            }
+            store.set("key1".to_owned(), "value1".to_owned())?;
+            assert_eq!(
+                store.get("key1".to_owned())?,
+                Some("value1".to_owned())
+            );
+            store.set("key1".to_owned(), "value2".to_owned())?;
+            assert_eq!(
+                store.get("key1".to_owned())?,
+                Some("value2".to_owned())
+            );
+
             Ok(())
         }
 
@@ -124,18 +87,11 @@ pub mod kv_store_tests {
         fn test_get_nonexistent_value() -> Result<()> {
             let temp_dir = TempDir::new()
                 .expect("unable to create temporary working directory");
-            {
-                let mut store = Self::open(&temp_dir)?;
 
-                store.set("key1".to_owned(), "value1".to_owned())?;
-                assert_eq!(store.get("key2".to_owned())?, None);
-            }
+            let mut store = Self::open(&temp_dir)?;
 
-            {
-                // Open from disk again and check persistent data
-                let store = Self::open(&temp_dir)?;
-                assert_eq!(store.get("key2".to_owned())?, None);
-            }
+            store.set("key1".to_owned(), "value1".to_owned())?;
+            assert_eq!(store.get("key2".to_owned())?, None);
 
             Ok(())
         }
@@ -157,7 +113,10 @@ pub mod kv_store_tests {
                 .expect("unable to create temporary working directory");
             let mut store = Self::open(&temp_dir)?;
             store.set("key1".to_owned(), "value1".to_owned())?;
-            assert!(store.remove("key1".to_owned()).is_ok());
+            assert_eq!(
+                store.remove("key1".to_owned())?,
+                Some("value1".to_owned())
+            );
             assert_eq!(store.get("key1".to_owned())?, None);
             Ok(())
         }

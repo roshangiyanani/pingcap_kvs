@@ -1,4 +1,4 @@
-use core::{ExplicitlyPersistent, KvStore, Result};
+use core::{KvStore, Result};
 
 use crate::HashMapKvs;
 
@@ -8,7 +8,7 @@ impl KvStore for HashMapKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use core::KvStore;
+    /// # use core::{KvStore, Persistent};
     /// # use hashmap_kvs::HashMapKvs;
     /// #
     /// # let temp_dir =
@@ -27,7 +27,7 @@ impl KvStore for HashMapKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use core::KvStore;
+    /// # use core::{KvStore, Persistent};
     /// # use hashmap_kvs::HashMapKvs;
     /// #
     /// # let temp_dir =
@@ -45,7 +45,7 @@ impl KvStore for HashMapKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use core::KvStore;
+    /// # use core::{Persistent, KvStore};
     /// # use hashmap_kvs::HashMapKvs;
     /// #
     /// # let temp_dir =
@@ -61,36 +61,19 @@ impl KvStore for HashMapKvs {
         }
         Ok(status)
     }
-
-    /// Save (if it has been changed) and close the key-value store.
-    /// ```rust
-    /// use core::KvStore;
-    /// use hashmap_kvs::HashMapKvs;
-    /// use tempfile::TempDir;
-    ///
-    /// let temp_dir =
-    ///     TempDir::new().expect("unable to create temporary working directory");
-    /// let mut store = HashMapKvs::open(temp_dir.path().join("kvs")).unwrap();
-    /// store.close().unwrap();
-    /// ```
-    fn close(mut self) -> Result<()> {
-        if self.mutated {
-            self.save()
-        } else {
-            Ok(())
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use core::tests::Testable;
+    use core::Persistent;
     use std::path::Path;
 
     impl Testable for HashMapKvs {
         fn open<P: AsRef<Path>>(dir: P) -> Result<Self> {
-            HashMapKvs::open(dir.as_ref().join("kvs"))
+            Persistent::open(dir.as_ref().join("kvs"))
         }
     }
 

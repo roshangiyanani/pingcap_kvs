@@ -11,7 +11,8 @@ extern crate core;
 
 mod store;
 pub use store::LogKvs;
-pub(crate) use store::*;
 
 mod command;
 pub(crate) use command::*;
+
+mod persistent;

@@ -12,6 +12,9 @@ pub mod tests;
 mod kv_store;
 pub use self::kv_store::*;
 
+mod persistent;
+pub use self::persistent::*;
+
 mod compactable;
 pub use self::compactable::*;
 

@@ -1,12 +1,8 @@
 use std::collections::HashMap;
-use std::fs::create_dir;
 use std::path::Path;
 
 use crate::{Command, LogCommandPointer, LogFile};
 use core::{Compactable, Error, KvStore, Result};
-
-pub const DEFAULT_LOG_NAME: &str = "1";
-pub const DEFAULT_LOG_ID: usize = 1;
 
 /// An implementation of a key-value store using an append-only log store.
 #[derive(Debug)]
@@ -16,36 +12,12 @@ pub struct LogKvs {
 }
 
 impl LogKvs {
-    /// Initialize the key value store
-    ///
-    /// ```rust
-    /// use log_kvs::LogKvs;
-    /// use tempfile::TempDir;
-    ///
-    /// let temp_dir =
-    ///     TempDir::new().expect("unable to create temporary working directory");
-    /// let mut store = LogKvs::open(temp_dir.path()).unwrap();
-    /// ```
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub(crate) const DEFAULT_LOG_NAME: &'static str = "1";
+    pub(crate) const DEFAULT_LOG_ID: usize = 1;
+
+    pub(crate) fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = Path::new(path.as_ref());
-
-        // create directory if need be
-        if let Err(err) = create_dir(path) {
-            if err.kind() != std::io::ErrorKind::AlreadyExists {
-                return Err(Error::io(err));
-            }
-        }
-
-        if path.join(DEFAULT_LOG_NAME).is_file() {
-            LogKvs::load(path)
-        } else {
-            LogKvs::new(path)
-        }
-    }
-
-    fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let path = Path::new(path.as_ref());
-        let default_file = path.join(DEFAULT_LOG_NAME);
+        let default_file = path.join(Self::DEFAULT_LOG_NAME);
 
         let kvs = LogKvs {
             index: HashMap::new(),
@@ -55,9 +27,9 @@ impl LogKvs {
         Ok(kvs)
     }
 
-    fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub(crate) fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = Path::new(path.as_ref());
-        let default_file = path.join(DEFAULT_LOG_NAME);
+        let default_file = path.join(Self::DEFAULT_LOG_NAME);
 
         let mut kvs = LogKvs {
             index: HashMap::new(),
@@ -110,7 +82,7 @@ impl Compactable for LogKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use core::{KvStore, Compactable};
+    /// # use core::{KvStore, Compactable, Persistent};
     /// # use log_kvs::LogKvs;
     ///
     /// # let temp_dir =
@@ -158,7 +130,7 @@ impl KvStore for LogKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use core::KvStore;
+    /// # use core::{KvStore, Persistent};
     /// # use log_kvs::LogKvs;
     ///
     /// # let temp_dir =
@@ -180,7 +152,7 @@ impl KvStore for LogKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use core::KvStore;
+    /// # use core::{Persistent, KvStore};
     /// # use log_kvs::LogKvs;
     /// #
     /// # let temp_dir =
@@ -203,7 +175,7 @@ impl KvStore for LogKvs {
     ///
     /// ```rust
     /// # use tempfile::TempDir;
-    /// # use core::KvStore;
+    /// # use core::{Persistent, KvStore};
     /// # use log_kvs::LogKvs;
     /// #
     /// # let temp_dir =
@@ -222,32 +194,19 @@ impl KvStore for LogKvs {
             None => Ok(None),
         }
     }
-
-    /// Save (if it has been changed) and close the key-value store.
-    /// ```rust
-    /// use core::KvStore;
-    /// use log_kvs::LogKvs;
-    /// use tempfile::TempDir;
-    ///
-    /// let temp_dir =
-    ///     TempDir::new().expect("unable to create temporary working directory");
-    /// let mut store = LogKvs::open(temp_dir.path()).unwrap();
-    /// store.close().unwrap();
-    /// ```
-    fn close(self) -> Result<()> {
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use core::tests::Testable;
+    use core::Persistent;
     use std::path::Path;
 
     impl Testable for LogKvs {
         fn open<P: AsRef<Path>>(dir: P) -> Result<Self> {
-            LogKvs::open(dir.as_ref().join("kvs"))
+            Persistent::open(dir.as_ref().join("kvs"))
         }
     }
 
