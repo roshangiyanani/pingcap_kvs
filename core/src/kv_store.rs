@@ -19,11 +19,10 @@ pub trait KvStore {
 pub mod kv_store_tests {
     use super::*;
 
-    use tempfile::TempDir;
+    use crate::tests::{TestContext, Testable};
+    use crate::Persistent;
 
-    use crate::tests::Testable;
-
-    impl<S> CoreTests for S where S: Testable {}
+    impl<S> CoreTests for S where S: Persistent + Testable {}
 
     #[macro_export]
     /// Generate tests for the given type using all the CoreTest functions
@@ -43,13 +42,11 @@ pub mod kv_store_tests {
     }
 
     /// Functions to test core KvStore implementations.
-    pub trait CoreTests: Testable {
+    pub trait CoreTests: Persistent + Testable {
         /// Should get previously stored value
         fn test_get_stored_value() -> Result<()> {
-            let temp_dir = TempDir::new()
-                .expect("unable to create temporary working directory");
-
-            let mut store = Self::open(&temp_dir)?;
+            let context = Self::Context::init();
+            let mut store: Self = TestContext::open_store(&context)?;
 
             store.set("key1".to_owned(), "value1".to_owned())?;
             store.set("key2".to_owned(), "value2".to_owned())?;
@@ -67,10 +64,8 @@ pub mod kv_store_tests {
 
         /// Should overwrite existent value
         fn test_overwrite_value() -> Result<()> {
-            let temp_dir = TempDir::new()
-                .expect("unable to create temporary working directory");
-
-            let mut store = Self::open(&temp_dir)?;
+            let context = Self::Context::init();
+            let mut store: Self = context.open_store()?;
 
             store.set("key1".to_owned(), "value1".to_owned())?;
             assert_eq!(
@@ -88,10 +83,8 @@ pub mod kv_store_tests {
 
         /// Should get `None` when getting a non-existent key
         fn test_get_nonexistent_value() -> Result<()> {
-            let temp_dir = TempDir::new()
-                .expect("unable to create temporary working directory");
-
-            let mut store = Self::open(&temp_dir)?;
+            let context = Self::Context::init();
+            let mut store: Self = context.open_store()?;
 
             store.set("key1".to_owned(), "value1".to_owned())?;
             assert_eq!(store.get("key2".to_owned())?, None);
@@ -101,26 +94,30 @@ pub mod kv_store_tests {
 
         /// Should get 'None' when removing
         fn test_remove_non_existent_key() -> Result<()> {
-            let temp_dir = TempDir::new()
-                .expect("unable to create temporary working directory");
-            let mut store = Self::open(&temp_dir)?;
+            let context = Self::Context::init();
+            let mut store: Self = context.open_store()?;
+
             let status = store.remove("key1".to_owned());
+
             assert!(status.is_ok());
             assert!(status.unwrap().is_none());
+
             Ok(())
         }
 
         /// Shouldn't contain key after removal
         fn test_remove_key() -> Result<()> {
-            let temp_dir = TempDir::new()
-                .expect("unable to create temporary working directory");
-            let mut store = Self::open(&temp_dir)?;
+            let context = Self::Context::init();
+            let mut store: Self = context.open_store()?;
+
             store.set("key1".to_owned(), "value1".to_owned())?;
+
             assert_eq!(
                 store.remove("key1".to_owned())?,
                 Some("value1".to_owned())
             );
             assert_eq!(store.get("key1".to_owned())?, None);
+
             Ok(())
         }
     }

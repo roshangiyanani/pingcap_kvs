@@ -16,12 +16,16 @@ pub trait Compactable: KvStore + Persistent {
 pub mod compactable_tests {
     use super::*;
 
-    use tempfile::TempDir;
     use walkdir::WalkDir;
 
-    use crate::tests::Testable;
+    use crate::tests::{
+        PersistentTestContext, PersistentTestable, TestContext,
+    };
 
-    impl<S> CompactableTests for S where S: Testable + Compactable {}
+    impl<S: Compactable> CompactableTests for S where
+        S: Compactable + PersistentTestable
+    {
+    }
 
     #[macro_export]
     /// Generate tests for the given type using the CompactableTests function.
@@ -34,16 +38,15 @@ pub mod compactable_tests {
     }
 
     /// Functions to test compactability.
-    pub trait CompactableTests: Testable + Compactable {
+    pub trait CompactableTests: Compactable + PersistentTestable {
         /// Insert data until total size of the directory decreases.
         /// Test data correctness after compaction.
         fn test_compaction() -> Result<()> {
-            let temp_dir = TempDir::new()
-                .expect("unable to create temporary working directory");
-            let mut store: Self = Testable::open(temp_dir.path())?;
+            let context = <Self as PersistentTestable>::Context::init();
+            let mut store: Self = context.open_store()?;
 
             let dir_size = || {
-                let entries = WalkDir::new(temp_dir.path()).into_iter();
+                let entries = WalkDir::new(context.get_path()).into_iter();
                 let len: walkdir::Result<u64> = entries
                     .map(|res| {
                         res.and_then(|entry| entry.metadata())
@@ -70,7 +73,7 @@ pub mod compactable_tests {
 
                 drop(store);
                 // reopen and check content
-                let store: Self = Testable::open(temp_dir.path())?;
+                let store: Self = context.open_store()?;
                 for key_id in 0..1000 {
                     let key = format!("key{}", key_id);
                     assert_eq!(store.get(key)?, Some(format!("{}", iter)));

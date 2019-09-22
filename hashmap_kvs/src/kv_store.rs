@@ -67,14 +67,10 @@ impl KvStore for HashMapKvs {
 mod tests {
     use super::*;
 
-    use core::tests::Testable;
-    use core::Persistent;
-    use std::path::Path;
+    use core::tests::{DefaultTestContext, Testable};
 
     impl Testable for HashMapKvs {
-        fn open<P: AsRef<Path>>(dir: P) -> Result<Self> {
-            Persistent::open(dir.as_ref().join("kvs"))
-        }
+        type Context = DefaultTestContext;
     }
 
     generate_core_tests!(HashMapKvs);
