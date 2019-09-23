@@ -9,8 +9,8 @@
 #[macro_use]
 extern crate core;
 
-mod command;
-pub(crate) use command::*;
+mod log;
+pub(crate) use log::*;
 
 mod compactable;
 mod kv_store;
